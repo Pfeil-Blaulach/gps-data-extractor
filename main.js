@@ -2,7 +2,7 @@
 // Zuständig für: Upload-Dialog, Datei lesen, parseGpx() aufrufen, Tabelle rendern, CSV-Export
 // Parsing steckt in ./parsers/gpxParser.js
 
-import { parseGpx } from './parsers/gpxParser.js';
+import { parseGpx } from './gpxparser.js';
 
 // ---- DOM-Refs ----
 const uploadBtn = byId('uploadBtn');
