@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Geodaten-Viewer</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="container">
@@ -28,8 +28,7 @@
   </footer>
 
   <script type="module">
-    import { parseGfx } from './parsers/gfxParser.js';
-    import { parseGpx } from './parsers/gpxParser.js';
+    import './gpxparser.js';
 
     const uploadBtn = document.getElementById('uploadBtn');
     const fileInput = document.getElementById('fileInput');
