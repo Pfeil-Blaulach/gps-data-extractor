@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Geodaten-Viewer</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="container">
+    <h1>Geodaten hochladen</h1>
+    <p class="subtle">Lade eine <strong>.gfx</strong> (Text) oder <strong>.gpx</strong> (XML) Datei.</p>
+    <button id="uploadBtn" type="button">Geodaten hochladen</button>
+    <input id="fileInput" type="file" accept=".gfx,.gpx,text/plain,application/xml" hidden />
+    <a id="downloadCsv" href="#" download="geodaten.csv" class="secondary" hidden>CSV herunterladen</a>
+    <div id="status" role="status" aria-live="polite"></div>
+  </header>
+
+  <main class="container">
+    <section>
+      <h2>Vorschau</h2>
+      <div id="tableHost" class="table-host"></div>
+    </section>
+  </main>
+
+  <footer class="container subtle">
+    <small>Client-seitig, keine Datenübertragung an Server. Funktioniert auch offline (PWA möglich).</small>
+  </footer>
+
+  <script type="module">
+    import { parseGfx } from './parsers/gfxParser.js';
+    import { parseGpx } from './parsers/gpxParser.js';
+
+    const uploadBtn = document.getElementById('uploadBtn');
+    const fileInput = document.getElementById('fileInput');
+    const statusEl  = document.getElementById('status');
+    const tableHost = document.getElementById('tableHost');
+    const dlCsv     = document.getElementById('downloadCsv');
+
+    uploadBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      statusEl.textContent = `Lese Datei: ${file.name} …`;
+      try {
+        const text = await file.text();
+        // Parser auswählen: simple Heuristik nach Endung / Inhalt
+        let rows = [];
+        if (file.name.toLowerCase().endsWith('.gpx') || text.trim().startsWith('<?xml')) {
+          rows = parseGpx(text);   // [{lat, lon, time, ...}, ...]
+        } else {
+          rows = parseGfx(text);   // frei definierbar (siehe gfxParser.js)
+        }
+        renderTable(rows);
+        prepareCsv(rows);
+        statusEl.textContent = `OK: ${rows.length} Datensätze geladen.`;
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = `Fehler: ${err?.message ?? err}`;
+        tableHost.innerHTML = '';
+        dlCsv.hidden = true;
+      } finally {
+        fileInput.value = ''; // reset
+      }
+    });
+
+    function renderTable(rows) {
+      if (!rows?.length) {
+        tableHost.innerHTML = '<p class="subtle">Keine Daten gefunden.</p>';
+        return;
+      }
+      const cols = Object.keys(rows[0]);
+      const table = document.createElement('table');
+      const thead = document.createElement('thead');
+      const trh = document.createElement('tr');
+      cols.forEach(c => {
+        const th = document.createElement('th');
+        th.textContent = c;
+        trh.appendChild(th);
+      });
+      thead.appendChild(trh);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        cols.forEach(c => {
+          const td = document.createElement('td');
+          td.textContent = r[c] ?? '';
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+
+      tableHost.innerHTML = '';
+      tableHost.appendChild(table);
+    }
+
+    function toCsv(rows) {
+      if (!rows?.length) return '';
+      const cols = Object.keys(rows[0]);
+      const escape = (v) => {
+        const s = (v ?? '').toString();
+        // CSV (Excel-freundlich): Semikolon oder Komma – wähle hier Komma
+        const needQuotes = /[",\n;]/.test(s);
+        const esc = s.replace(/"/g, '""');
+        return needQuotes ? `"${esc}"` : esc;
+      };
+      const head = cols.map(escape).join(',');
+      const body = rows.map(r => cols.map(c => escape(r[c])).join(',')).join('\n');
+      return head + '\n' + body;
+    }
+
+    function prepareCsv(rows) {
+      const csv = toCsv(rows);
+      // UTF-8 BOM für Excel
+      const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      dlCsv.href = url;
+      dlCsv.hidden = false;
+    }
+  </script>
+</body>
+</html>
