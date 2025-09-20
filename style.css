@@ -1,0 +1,24 @@
+:root {
+  --fg: #0b1221; --bg: #ffffff; --muted:#6b7280; --accent:#2563eb;
+  --radius: 14px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: var(--fg); background: var(--bg); }
+.container { max-width: 960px; margin: 0 auto; padding: 16px; }
+h1 { margin: 16px 0 8px; }
+h2 { margin-top: 24px; }
+.subtle { color: var(--muted); }
+
+button, .secondary {
+  display: inline-block; padding: 10px 14px; border-radius: var(--radius);
+  border: 1px solid var(--accent); background: var(--accent); color: white; text-decoration: none;
+}
+.secondary { background: transparent; color: var(--accent); margin-left: 8px; }
+
+#status { margin-top: 8px; min-height: 1.5em; }
+
+.table-host { overflow: auto; border-radius: var(--radius); border: 1px solid #e5e7eb; }
+table { border-collapse: collapse; width: 100%; }
+th, td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; }
+thead th { position: sticky; top: 0; background: #f8fafc; text-align: left; }
+tr:nth-child(even) td { background: #fcfdff; }
