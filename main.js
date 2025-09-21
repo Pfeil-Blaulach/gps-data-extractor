@@ -2,7 +2,7 @@
 // Zuständig für: Upload-Dialog, Datei lesen, parseGpx() aufrufen,
 // Tabelle rendern (mit Spalten-Whitelist), CSV-Export in DE-Format (; + ,)
 
-import { parseGpx } from './parsers/gpxparser.js';
+import { parseGpx } from './gpxparser.js';
 
 // ---- Sichtbare Spalten (Reihenfolge & Benennung) ----
 const VISIBLE_COLS = [
