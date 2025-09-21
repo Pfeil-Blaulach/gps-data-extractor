@@ -12,7 +12,7 @@ const VISIBLE_COLS = [
   'Uhrzeit',
   'Zeit t seit Start [s]',
   'Δt zum Vorpunkt [s]',
-  'ds zum Vorpunkt [m]',
+  'Δs zum Vorpunkt [m]',
   'Gesamtstrecke s [m]',
   'Höhe h [m]',
 ];
