@@ -97,8 +97,8 @@ export function parseGpx(xmlText, options = {}) {
 
     out.push({
       // Spalten A..I mit gewünschten deutschen Bezeichnungen:
-      'Lat': cur.lat,
-      'Lon': cur.lon,
+      //'Lat': cur.lat,
+      //'Lon': cur.lon,
       'Datum': datePart,                          // YYYY-MM-DD (aus UTC-Zeitstempel)
       'Uhrzeit': timePart,                        // HH:MM:SS (UTC)
       'Zeit t seit Start [s]': roundN(dt0_s, 3),
