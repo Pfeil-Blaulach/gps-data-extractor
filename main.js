@@ -6,15 +6,15 @@ import { parseGpx } from './gpxparser.js';
 
 // ---- Sichtbare Spalten (Reihenfolge & Benennung) ----
 const VISIBLE_COLS = [
-  'Lat',
-  'Lon',
+  //'Lat',
+  //'Lon',
   'Datum',
   'Uhrzeit',
-  'Δt seit Start [s]',
+  'Zeit t seit Start [s]',
   'Δt zum Vorpunkt [s]',
   'ds zum Vorpunkt [m]',
-  's kumuliert [m]',
-  'Höhe [m]',
+  'Gesamtstrecke s [m]',
+  'Höhe h [m]',
 ];
 
 // ---- DOM-Refs ----
