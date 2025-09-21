@@ -17,6 +17,13 @@ button, .secondary {
 
 #status { margin-top: 8px; min-height: 1.5em; }
 
+.ctrl-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: max-content;
+}
+
 .table-host { overflow: auto; border-radius: var(--radius); border: 1px solid #e5e7eb; }
 table { border-collapse: collapse; width: 100%; }
 th, td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; }
