@@ -101,10 +101,10 @@ export function parseGpx(xmlText, options = {}) {
       'Lon': cur.lon,
       'Datum': datePart,                          // YYYY-MM-DD (aus UTC-Zeitstempel)
       'Uhrzeit': timePart,                        // HH:MM:SS (UTC)
-      'Δt seit Start [s]': roundN(dt0_s, 3),
-      'Δt zum Vorpunkt [s]': roundN(dtPrev_s, 3),
-      'ds zum Vorpunkt [m]': roundN(ds_m, 3),
-      's kumuliert [m]': roundN(sCum, 3),
+      'Zeit t seit Start [s]': roundN(dt0_s, 3),
+      'Zeitspanne Δt zum Vorpunkt [s]': roundN(dtPrev_s, 1),
+      'Strecke Δs zum Vorpunkt [m]': roundN(ds_m, 1),
+      'Gesamtstrecke s [m]': roundN(sCum, 1),
       'Höhe [m]': Number.isFinite(cur.ele) ? cur.ele : ''
     });
   }
