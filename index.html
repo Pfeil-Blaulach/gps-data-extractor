@@ -8,17 +8,20 @@
 </head>
 <body>
   <header class="container">
-    <h1>Geodaten hochladen</h1>
-    <p class="subtle">Lade eine <strong>.gfx</strong> (Text) oder <strong>.gpx</strong> (XML) Datei.</p>
+    <h1>Geodaten für ein s-t-Diagramm</h1>
+    <h3>Datei hochladen</h3>
+    <p class="subtle">Lade eine <strong>.gpx</strong> Datei hoch, um die Geodaten zu sehen.</p>
     <button id="uploadBtn" type="button">Geodaten hochladen</button>
     <input id="fileInput" type="file" accept=".gpx" hidden />
-    <a id="downloadCsv" href="#" download="geodaten.csv" class="secondary" hidden>CSV herunterladen</a>
+    <button id="downloadCsv" type="button" href="#" download="geodaten.csv" class="secondary">CSV herunterladen</button>
+    <!--<a id="downloadCsv" href="#" download="geodaten.csv" class="secondary" hidden>CSV herunterladen</a>-->
     <div id="status" role="status" aria-live="polite"></div>
 
     <div id="controls" class="controls" hidden>
-      <h3>Vereinfachung & Stopps</h3>
+      <h3>Vereinfachung</h3>
+      <p class="subtle">Hier kannst du die Daten vereinfachen. So musst du weniger Punkte einzeichnen.</p>
       <div class="ctrl-row">
-        <label for="vFactor">Langsame Bewegung als Stillstand werten ab: <span id="vValue">–</span> m/s
+        <label for="vFactor">Langsame Bewegung als Stillstand werten: Ab <span id="vValue">–</span> m/s
         </label>
         <input id="vFactor" type="range" min="0" max="3" step="0.1" value="1" />
       </div>
@@ -40,13 +43,13 @@
 
   <main class="container">
     <section>
-      <h2>Vorschau</h2>
+      <h3>Vorschau</h3>
       <div id="tableHost" class="table-host"></div>
     </section>
   </main>
 
   <footer class="container subtle">
-    <small>Client-seitig, keine Datenübertragung an Server. Funktioniert auch offline (PWA möglich).</small>
+    <small>Die Verarbeitung aller Daten geschieht Client-seitig. Es erfolgt keine Datenübertragung an Server.</small>
   </footer>
 
   <script type="module" src="main.js"></script>
