@@ -83,11 +83,11 @@ export function parseGpx(xmlText, options = {}) {
       'Lon': cur.lon,
       'Datum': datePart,                 // Europe/Berlin
       'Uhrzeit': timePart,               // Europe/Berlin
-      'Δt seit Start [s]': roundN(dt0_s, 3),
+      'Zeit t seit Start [s]': roundN(dt0_s, 3),
       'Δt zum Vorpunkt [s]': roundN(dtPrev_s, 3),
       'ds zum Vorpunkt [m]': roundN(ds_m, 3),
-      's kumuliert [m]': roundN(sCum, 3),
-      'Höhe [m]': Number.isFinite(cur.ele) ? cur.ele : ''
+      'Gesamtstrecke s [m]': roundN(sCum, 3),
+      'Höhe h [m]': Number.isFinite(cur.ele) ? cur.ele : ''
     });
   }
   return out;
