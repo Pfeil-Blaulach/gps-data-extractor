@@ -205,9 +205,9 @@ function computeDefaults(rows) {
 // Slider-Labels updaten
 function updateSliderLabels() {
   if (!defaults) return;
-  const vThresh = roundN(defaults.v0 * Number(vFactorEl.value || 1), 1);
-  const tau     = roundN(defaults.tau0 * Number(tFactorEl.value || 1), 1);
-  const eps     = roundN(defaults.eps0 * Number(eFactorEl.value || 1), 1);
+  const vThresh = roundN(defaults.v0 * Number(vFactorEl.value || 1));
+  const tau     = roundN(defaults.tau0 * Number(tFactorEl.value || 1));
+  const eps     = roundN(defaults.eps0 * Number(eFactorEl.value || 1));
   if (vValueEl) vValueEl.textContent = fmt(vThresh);
   if (tValueEl) tValueEl.textContent = fmt(tau);
   if (eValueEl) eValueEl.textContent = fmt(eps);
@@ -290,4 +290,8 @@ function douglasPeuckerOnRange(t, s, L, R, keep, eps, k) {
     if (maxD > eps) { keep[idx] = true; simplify(a, idx); simplify(idx, b); }
   }
   simplify(L, R);
+}
+
+function roundN(x, n = 1) {
+  return Number.isFinite(x) ? Number(x.toFixed(n)) : '';
 }
