@@ -198,7 +198,7 @@ function computeDefaults(rows) {
   return {
     v0: 0.01 * vmax,   // 1 % von v_max
     tau0: 0.01 * totalT, // 1 % von Gesamtdauer
-    eps0: 0.05 * totalS, // 5 % von Gesamtstrecke
+    eps0: 0.02 * totalS, // 2 % von Gesamtstrecke
   };
 }
 
