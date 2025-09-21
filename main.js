@@ -205,9 +205,9 @@ function computeDefaults(rows) {
 // Slider-Labels updaten
 function updateSliderLabels() {
   if (!defaults) return;
-  const vThresh = defaults.v0 * Number(vFactorEl.value || 1);
-  const tau     = defaults.tau0 * Number(tFactorEl.value || 1);
-  const eps     = defaults.eps0 * Number(eFactorEl.value || 1);
+  const vThresh = roundN(defaults.v0 * Number(vFactorEl.value || 1), 1);
+  const tau     = roundN(defaults.tau0 * Number(tFactorEl.value || 1), 1);
+  const eps     = roundN(defaults.eps0 * Number(eFactorEl.value || 1), 1);
   if (vValueEl) vValueEl.textContent = fmt(vThresh);
   if (tValueEl) tValueEl.textContent = fmt(tau);
   if (eValueEl) eValueEl.textContent = fmt(eps);
