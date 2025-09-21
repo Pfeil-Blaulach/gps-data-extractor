@@ -85,7 +85,7 @@ export function parseGpx(xmlText, options = {}) {
       'Uhrzeit': timePart,               // Europe/Berlin
       'Zeit t seit Start [s]': roundN(dt0_s, 3),
       'Δt zum Vorpunkt [s]': roundN(dtPrev_s, 3),
-      'ds zum Vorpunkt [m]': roundN(ds_m, 3),
+      'Δs zum Vorpunkt [m]': roundN(ds_m, 3),
       'Gesamtstrecke s [m]': roundN(sCum, 3),
       'Höhe h [m]': Number.isFinite(cur.ele) ? cur.ele : ''
     });
