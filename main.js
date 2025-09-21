@@ -1,8 +1,21 @@
 // main.js
-// Zuständig für: Upload-Dialog, Datei lesen, parseGpx() aufrufen, Tabelle rendern, CSV-Export
-// Parsing steckt in ./parsers/gpxParser.js
+// Zuständig für: Upload-Dialog, Datei lesen, parseGpx() aufrufen,
+// Tabelle rendern (mit Spalten-Whitelist), CSV-Export in DE-Format (; + ,)
 
-import { parseGpx } from './gpxparser.js';
+import { parseGpx } from './parsers/gpxparser.js';
+
+// ---- Sichtbare Spalten (Reihenfolge & Benennung) ----
+const VISIBLE_COLS = [
+  'Lat',
+  'Lon',
+  'Datum',
+  'Uhrzeit',
+  'Δt seit Start [s]',
+  'Δt zum Vorpunkt [s]',
+  'ds zum Vorpunkt [m]',
+  's kumuliert [m]',
+  'Höhe [m]',
+];
 
 // ---- DOM-Refs ----
 const uploadBtn = byId('uploadBtn');
@@ -11,7 +24,10 @@ const statusEl   = byId('status');
 const tableHost  = byId('tableHost');
 const dlCsv      = byId('downloadCsv');
 
-// ---- Events ----
+// (optional) Falls du Regler für Filter hast:
+// const thrDistEl = byId('thrDist');    // Meter
+// const thrTimeEl = byId('thrTime');    // Sekunden
+
 uploadBtn?.addEventListener('click', () => fileInput?.click());
 
 fileInput?.addEventListener('change', async (e) => {
@@ -22,38 +38,30 @@ fileInput?.addEventListener('change', async (e) => {
   info(`Lese Datei: ${file.name} …`);
 
   try {
-    // Minimaler Typ-/Endungs-Check (nicht sicherheitskritisch, nur UX)
-    const isLikelyGpx = /\.gpx$/i.test(file.name) || file.type.includes('xml') || file.type.includes('text');
-    if (!isLikelyGpx) {
-      warn('Hinweis: Die Datei wirkt nicht wie eine GPX/XML – ich versuche es trotzdem …');
-    }
-
     const text = await file.text();
     validateXmlPlausibility(text);
 
-    const rows = parseGpx(text); // [{lat,lon,ele,time}, ...]
+    // Optional: Filter aus UI lesen
+    // const distThr = Number(thrDistEl?.value || 0);
+    // const timeThr = Number(thrTimeEl?.value || 0);
+
+    const rows = parseGpx(text, {
+      // distThresholdMeters: distThr,
+      // timeThresholdSeconds: timeThr,
+    });
     if (!Array.isArray(rows) || rows.length === 0) {
       throw new Error('Keine Trackpunkte (trkpt) gefunden.');
     }
 
-    // Normiere Spalten (falls mal ele/time fehlen)
-    const normalized = rows.map(r => ({
-      lat: toNumOrEmpty(r.lat),
-      lon: toNumOrEmpty(r.lon),
-      ele: toNumOrEmpty(r.ele),
-      time: r.time ?? ''
-    }));
-
-    renderTable(normalized);
-    prepareCsv(normalized);
-    ok(`OK: ${normalized.length} Punkte geladen.`);
+    renderTable(rows);
+    prepareCsv(rows);
+    ok(`OK: ${rows.length} Punkte geladen.`);
   } catch (err) {
     console.error(err);
     error(`Fehler: ${err?.message ?? err}`);
     clearTable();
     hideCsv();
   } finally {
-    // Reset für wiederholte Uploads derselben Datei
     if (fileInput) fileInput.value = '';
   }
 });
@@ -68,7 +76,7 @@ function resetUI() {
 function setStatus(text, cls) {
   if (!statusEl) return;
   statusEl.textContent = text;
-  statusEl.className = cls || ''; // Optional: in CSS farblich differenzieren
+  statusEl.className = cls || '';
 }
 const info  = (t) => setStatus(t, 'msg info');
 const ok    = (t) => setStatus(t, 'msg ok');
@@ -82,7 +90,7 @@ function renderTable(rows) {
     tableHost.innerHTML = '<p class="subtle">Keine Daten gefunden.</p>';
     return;
   }
-  const cols = Object.keys(rows[0]);
+  const cols = VISIBLE_COLS.filter(c => c in rows[0]);
 
   const table = document.createElement('table');
 
@@ -97,7 +105,6 @@ function renderTable(rows) {
   table.appendChild(thead);
 
   const tbody = document.createElement('tbody');
-  // Performance: Fragment für große Tabellen
   const frag = document.createDocumentFragment();
   rows.forEach(r => {
     const tr = document.createElement('tr');
@@ -120,34 +127,40 @@ function clearTable() {
 }
 
 function safeCell(v) {
-  if (v === null || v === undefined) return '';
-  // Kleine Formatierung: Zahlen kompakt anzeigen
+  if (v === null || v === undefined || v === '') return '';
   if (typeof v === 'number' && Number.isFinite(v)) {
-    // 7 signifikante Stellen reichen für Koordinaten und Höhen
-    return Number(v.toPrecision(7)).toString();
+    // DE-Format: Dezimalkomma, begrenze Anzeige sinnvoll
+    return v.toLocaleString('de-DE', { maximumFractionDigits: 3 });
   }
   return String(v);
 }
 
-// ---- CSV ----
+// ---- CSV (DE-Excel-freundlich) ----
 function toCsv(rows) {
   if (!rows?.length) return '';
-  const cols = Object.keys(rows[0]);
+  const cols = VISIBLE_COLS.filter(c => c in rows[0]);
+  const sep = ';'; // Semikolon als Feldtrenner (DE)
+
   const escape = (v) => {
-    const s = v === null || v === undefined ? '' : String(v);
-    const needQuotes = /[",\n;]/.test(s);
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'number' && Number.isFinite(v)) {
+      return v.toLocaleString('de-DE', { maximumFractionDigits: 10 });
+    }
+    const s = String(v);
+    const needQuotes = /["\n;]/.test(s);
     const esc = s.replace(/"/g, '""');
     return needQuotes ? `"${esc}"` : esc;
   };
-  const head = cols.map(escape).join(',');
-  const body = rows.map(r => cols.map(c => escape(r[c])).join(',')).join('\n');
+
+  const head = cols.map(escape).join(sep);
+  const body = rows.map(r => cols.map(c => escape(r[c])).join(sep)).join('\n');
   return head + '\n' + body;
 }
 
 function prepareCsv(rows) {
   if (!dlCsv) return;
   const csv = toCsv(rows);
-  const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8' }); // BOM für Excel
+  const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8' }); // UTF-8 mit BOM
   const url = URL.createObjectURL(blob);
   dlCsv.href = url;
   dlCsv.download = suggestCsvName() + '.csv';
@@ -162,24 +175,15 @@ function hideCsv() {
 }
 
 function suggestCsvName() {
-  // Versuche Datum/Uhrzeit aus der Seite (Header) oder fallback auf "geodaten"
-  // Du kannst das leicht anpassen, z.B. GPX-<YYYYMMDD-HHMM>
   const header = document.querySelector('header h1')?.textContent?.trim();
   const base = header && header.length < 60 ? header : 'geodaten';
   return base.replace(/\s+/g, '_').toLowerCase();
 }
 
-// ---- Validation / Plausibility ----
+// ---- Validation ----
 function validateXmlPlausibility(text) {
   if (!text || text.length < 20) throw new Error('Datei ist leer oder zu kurz.');
-  // Minimalcheck: <gpx ...> vorhanden?
   if (!/<gpx[\s>]/i.test(text)) {
-    // Nicht hart abbrechen – manche Dateien sind ohne Präambel, aber Hinweis geben:
     warn('Hinweis: Kein <gpx>-Tag gefunden – ist dies wirklich eine GPX-Datei?');
   }
-}
-
-function toNumOrEmpty(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : '';
 }
