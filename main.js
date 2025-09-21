@@ -185,8 +185,8 @@ function validateXmlPlausibility(text) {
 // Defaultwerte nach Datenlage
 function computeDefaults(rows) {
   const n = rows.length;
-  const tArr = rows.map(r => num(r['Δt seit Start [s]']));
-  const sArr = rows.map(r => num(r['s kumuliert [m]']));
+  const tArr = rows.map(r => num(r['Zeit t seit Start [s]']));
+  const sArr = rows.map(r => num(r['Gesamtstrecke s [m]']));
   let vmax = 0;
   for (let i = 1; i < n; i++) {
     const dt = Math.max(1e-9, tArr[i] - tArr[i-1]);
