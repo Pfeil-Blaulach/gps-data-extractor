@@ -24,9 +24,21 @@ const statusEl   = byId('status');
 const tableHost  = byId('tableHost');
 const dlCsv      = byId('downloadCsv');
 
-// (optional) Falls du Regler für Filter hast:
-// const thrDistEl = byId('thrDist');    // Meter
-// const thrTimeEl = byId('thrTime');    // Sekunden
+// Slider/Buttons
+const ctrlBox    = byId('controls');
+const vFactorEl  = byId('vFactor');
+const tFactorEl  = byId('tFactor');
+const eFactorEl  = byId('eFactor');
+const vValueEl   = byId('vValue');
+const tValueEl   = byId('tValue');
+const eValueEl   = byId('eValue');
+const applyBtn   = byId('applySimplify');
+
+// ---- State ----
+let originalRows = [];   // ungefiltert (aus Parser)
+let currentRows  = [];   // evtl. vereinfacht
+let defaults     = null; // { v0, tau0, eps0 }
+let factors      = { v:1, t:1, e:1 };
 
 uploadBtn?.addEventListener('click', () => fileInput?.click());
 
@@ -36,154 +48,246 @@ fileInput?.addEventListener('change', async (e) => {
 
   resetUI();
   info(`Lese Datei: ${file.name} …`);
-
   try {
     const text = await file.text();
     validateXmlPlausibility(text);
 
-    // Optional: Filter aus UI lesen
-    // const distThr = Number(thrDistEl?.value || 0);
-    // const timeThr = Number(thrTimeEl?.value || 0);
-
-    const rows = parseGpx(text, {
-      // distThresholdMeters: distThr,
-      // timeThresholdSeconds: timeThr,
-    });
-    if (!Array.isArray(rows) || rows.length === 0) {
+    // Parser liefert bereits dt0, dtPrev, ds und s kumuliert
+    originalRows = parseGpx(text);
+    if (!Array.isArray(originalRows) || originalRows.length === 0) {
       throw new Error('Keine Trackpunkte (trkpt) gefunden.');
     }
 
-    renderTable(rows);
-    prepareCsv(rows);
-    ok(`OK: ${rows.length} Punkte geladen.`);
+    // NEW: Defaults aus Daten berechnen
+    defaults = computeDefaults(originalRows);   // { v0, tau0, eps0 }
+    updateSliderLabels();                       // Zahlen neben den Slidern anzeigen
+    ctrlBox.hidden = false;                     // UI sichtbar
+
+    // Startansicht: noch nicht vereinfacht
+    currentRows = originalRows;
+    renderTable(currentRows);
+    prepareCsv(currentRows);
+
+    ok(`OK: ${currentRows.length} Punkte geladen.`);
   } catch (err) {
     console.error(err);
     error(`Fehler: ${err?.message ?? err}`);
     clearTable();
     hideCsv();
+    ctrlBox.hidden = true;
+    originalRows = currentRows = [];
   } finally {
     if (fileInput) fileInput.value = '';
   }
 });
 
-// ---- UI Helpers ----
+// NEW: Slider reagieren live (Labels updaten)
+[vFactorEl, tFactorEl, eFactorEl].forEach(inp => {
+  inp?.addEventListener('input', () => {
+    factors.v = Number(vFactorEl.value);
+    factors.t = Number(tFactorEl.value);
+    factors.e = Number(eFactorEl.value);
+    updateSliderLabels();
+  });
+});
+
+// NEW: Vereinfachung anwenden
+applyBtn?.addEventListener('click', () => {
+  if (!originalRows.length || !defaults) return;
+
+  const vThresh = defaults.v0 * factors.v;  // m/s
+  const tau     = defaults.tau0 * factors.t; // s
+  const eps     = defaults.eps0 * factors.e; // m
+
+  const { tArr, sArr } = extractTS(originalRows);
+  const keepIdx = simplifyForST(tArr, sArr, {
+    vThresh, tau, eps, timeToMeters: 0.1
+  });
+
+  currentRows = originalRows.filter((_, i) => keepIdx.includes(i));
+  renderTable(currentRows);
+  prepareCsv(currentRows);
+  info(`Vereinfacht: ${currentRows.length} Punkte (von ${originalRows.length}) – vThresh=${fmt(vThresh)} m/s, τ=${fmt(tau)} s, ε=${fmt(eps)} m`);
+});
+
+// ---- UI Helpers & Rendering (wie zuvor) ----
 function byId(id) { return document.getElementById(id); }
-
-function resetUI() {
-  if (statusEl) statusEl.textContent = '';
-}
-
-function setStatus(text, cls) {
-  if (!statusEl) return;
-  statusEl.textContent = text;
-  statusEl.className = cls || '';
-}
+function resetUI() { if (statusEl) statusEl.textContent = ''; }
+function setStatus(text, cls) { if (!statusEl) return; statusEl.textContent = text; statusEl.className = cls || ''; }
 const info  = (t) => setStatus(t, 'msg info');
 const ok    = (t) => setStatus(t, 'msg ok');
 const warn  = (t) => setStatus(t, 'msg warn');
 const error = (t) => setStatus(t, 'msg error');
 
-// ---- Table rendering ----
 function renderTable(rows) {
   if (!tableHost) return;
-  if (!rows?.length) {
-    tableHost.innerHTML = '<p class="subtle">Keine Daten gefunden.</p>';
-    return;
-  }
+  if (!rows?.length) { tableHost.innerHTML = '<p class="subtle">Keine Daten gefunden.</p>'; return; }
   const cols = VISIBLE_COLS.filter(c => c in rows[0]);
-
   const table = document.createElement('table');
 
   const thead = document.createElement('thead');
   const trh = document.createElement('tr');
-  cols.forEach(c => {
-    const th = document.createElement('th');
-    th.textContent = c;
-    trh.appendChild(th);
-  });
-  thead.appendChild(trh);
-  table.appendChild(thead);
+  cols.forEach(c => { const th = document.createElement('th'); th.textContent = c; trh.appendChild(th); });
+  thead.appendChild(trh); table.appendChild(thead);
 
   const tbody = document.createElement('tbody');
   const frag = document.createDocumentFragment();
   rows.forEach(r => {
     const tr = document.createElement('tr');
-    cols.forEach(c => {
-      const td = document.createElement('td');
-      td.textContent = safeCell(r[c]);
-      tr.appendChild(td);
-    });
+    cols.forEach(c => { const td = document.createElement('td'); td.textContent = safeCell(r[c]); tr.appendChild(td); });
     frag.appendChild(tr);
   });
-  tbody.appendChild(frag);
-  table.appendChild(tbody);
-
-  tableHost.innerHTML = '';
-  tableHost.appendChild(table);
+  tbody.appendChild(frag); table.appendChild(tbody);
+  tableHost.innerHTML = ''; tableHost.appendChild(table);
 }
-
-function clearTable() {
-  if (tableHost) tableHost.innerHTML = '';
-}
-
+function clearTable() { if (tableHost) tableHost.innerHTML = ''; }
 function safeCell(v) {
   if (v === null || v === undefined || v === '') return '';
-  if (typeof v === 'number' && Number.isFinite(v)) {
-    // DE-Format: Dezimalkomma, begrenze Anzeige sinnvoll
-    return v.toLocaleString('de-DE', { maximumFractionDigits: 3 });
-  }
+  if (typeof v === 'number' && Number.isFinite(v)) return v.toLocaleString('de-DE', { maximumFractionDigits: 3 });
   return String(v);
 }
 
-// ---- CSV (DE-Excel-freundlich) ----
+// CSV (DE-freundlich)
 function toCsv(rows) {
   if (!rows?.length) return '';
   const cols = VISIBLE_COLS.filter(c => c in rows[0]);
-  const sep = ';'; // Semikolon als Feldtrenner (DE)
-
+  const sep = ';';
   const escape = (v) => {
     if (v === null || v === undefined) return '';
-    if (typeof v === 'number' && Number.isFinite(v)) {
-      return v.toLocaleString('de-DE', { maximumFractionDigits: 10 });
-    }
-    const s = String(v);
-    const needQuotes = /["\n;]/.test(s);
-    const esc = s.replace(/"/g, '""');
+    if (typeof v === 'number' && Number.isFinite(v)) return v.toLocaleString('de-DE', { maximumFractionDigits: 10 });
+    const s = String(v); const needQuotes = /["\n;]/.test(s); const esc = s.replace(/"/g, '""');
     return needQuotes ? `"${esc}"` : esc;
   };
-
   const head = cols.map(escape).join(sep);
   const body = rows.map(r => cols.map(c => escape(r[c])).join(sep)).join('\n');
   return head + '\n' + body;
 }
-
 function prepareCsv(rows) {
   if (!dlCsv) return;
   const csv = toCsv(rows);
-  const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8' }); // UTF-8 mit BOM
+  const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  dlCsv.href = url;
-  dlCsv.download = suggestCsvName() + '.csv';
-  dlCsv.hidden = false;
+  dlCsv.href = url; dlCsv.download = suggestCsvName() + '.csv'; dlCsv.hidden = false;
 }
-
-function hideCsv() {
-  if (dlCsv) {
-    dlCsv.hidden = true;
-    dlCsv.removeAttribute('href');
-  }
-}
-
+function hideCsv() { if (dlCsv) { dlCsv.hidden = true; dlCsv.removeAttribute('href'); } }
 function suggestCsvName() {
   const header = document.querySelector('header h1')?.textContent?.trim();
   const base = header && header.length < 60 ? header : 'geodaten';
   return base.replace(/\s+/g, '_').toLowerCase();
 }
-
-// ---- Validation ----
 function validateXmlPlausibility(text) {
   if (!text || text.length < 20) throw new Error('Datei ist leer oder zu kurz.');
-  if (!/<gpx[\s>]/i.test(text)) {
-    warn('Hinweis: Kein <gpx>-Tag gefunden – ist dies wirklich eine GPX-Datei?');
+  if (!/<gpx[\s>]/i.test(text)) warn('Hinweis: Kein <gpx>-Tag gefunden – ist dies wirklich eine GPX-Datei?');
+}
+
+// ========= NEW: Default-Berechnung, Vereinfachung, Hilfen =========
+
+// Defaultwerte nach Datenlage
+function computeDefaults(rows) {
+  const n = rows.length;
+  const tArr = rows.map(r => num(r['Δt seit Start [s]']));
+  const sArr = rows.map(r => num(r['s kumuliert [m]']));
+  let vmax = 0;
+  for (let i = 1; i < n; i++) {
+    const dt = Math.max(1e-9, tArr[i] - tArr[i-1]);
+    const ds = Math.max(0, sArr[i] - sArr[i-1]);
+    vmax = Math.max(vmax, ds / dt);
   }
+  const totalT = tArr[n-1] - tArr[0];
+  const totalS = sArr[n-1] - sArr[0];
+  return {
+    v0: 0.01 * vmax,   // 1 % von v_max
+    tau0: 0.01 * totalT, // 1 % von Gesamtdauer
+    eps0: 0.05 * totalS, // 5 % von Gesamtstrecke
+  };
+}
+
+// Slider-Labels updaten
+function updateSliderLabels() {
+  if (!defaults) return;
+  const vThresh = defaults.v0 * Number(vFactorEl.value || 1);
+  const tau     = defaults.tau0 * Number(tFactorEl.value || 1);
+  const eps     = defaults.eps0 * Number(eFactorEl.value || 1);
+  if (vValueEl) vValueEl.textContent = fmt(vThresh);
+  if (tValueEl) tValueEl.textContent = fmt(tau);
+  if (eValueEl) eValueEl.textContent = fmt(eps);
+}
+function fmt(x) { return Number(x).toLocaleString('de-DE', { maximumFractionDigits: 3 }); }
+function num(x) { const n = Number(x); return Number.isFinite(n) ? n : 0; }
+
+// aus Rows die t- und s-Arrays extrahieren
+function extractTS(rows) {
+  return {
+    tArr: rows.map(r => num(r['Δt seit Start [s]'])),
+    sArr: rows.map(r => num(r['s kumuliert [m]'])),
+  };
+}
+
+// Vereinfachung mit Stopp-Schutz (wie besprochen)
+function simplifyForST(t, s, { vThresh=0.2, tau=10, eps=3, timeToMeters=0.1 } = {}) {
+  const n = Math.min(t.length, s.length);
+  if (n <= 2) return [...Array(n).keys()];
+
+  // v[i] zwischen i-1 und i
+  const v = new Array(n).fill(0);
+  for (let i = 1; i < n; i++) {
+    const dt = Math.max(1e-9, t[i] - t[i-1]);
+    const ds = Math.max(0, s[i] - s[i-1]);
+    v[i] = ds / dt;
+  }
+
+  // Stopps (v < vThresh) mit Gesamtdauer >= tau
+  const stopSegments = [];
+  let i = 1;
+  while (i < n) {
+    if (v[i] < vThresh) {
+      let j = i + 1;
+      while (j < n && v[j] < vThresh) j++;
+      const dtSeg = t[j-1] - t[i-1];
+      if (dtSeg >= tau) stopSegments.push([i-1, j-1]);
+      i = j;
+    } else i++;
+  }
+
+  const keep = new Array(n).fill(false);
+  keep[0] = keep[n-1] = true;
+  for (const [a,b] of stopSegments) { keep[a] = true; keep[b] = true; }
+
+  // Bewegungs-Segmente finden (zwischen Stopp-Grenzen)
+  const bounds = [0, ...stopSegments.flat(), n-1].sort((a,b)=>a-b);
+  for (let k = 0; k < bounds.length - 1; k++) {
+    const L = bounds[k], R = bounds[k+1];
+    const isStop = stopSegments.some(([a,b]) => a===L && b===R);
+    if (isStop) continue; // Stopp-Abschnitt: nur Grenzen
+    douglasPeuckerOnRange(t, s, L, R, keep, eps, timeToMeters);
+  }
+
+  const idx = [];
+  for (let p = 0; p < n; p++) if (keep[p]) idx.push(p);
+  return idx;
+}
+function douglasPeuckerOnRange(t, s, L, R, keep, eps, k) {
+  if (R <= L + 1) { keep[L] = true; keep[R] = true; return; }
+  keep[L] = true; keep[R] = true;
+
+  function perpDist(i, a, b) {
+    const ax = t[a] * k, ay = s[a];
+    const bx = t[b] * k, by = s[b];
+    const px = t[i] * k, py = s[i];
+    const dx = bx - ax, dy = by - ay;
+    if (dx === 0 && dy === 0) return Math.hypot(px - ax, py - ay);
+    const u = ((px - ax) * dx + (py - ay) * dy) / (dx*dx + dy*dy);
+    const qx = ax + u * dx, qy = ay + u * dy;
+    return Math.hypot(px - qx, py - qy);
+  }
+  function simplify(a, b) {
+    if (b <= a + 1) return;
+    let maxD = -1, idx = -1;
+    for (let i = a + 1; i < b; i++) {
+      const d = perpDist(i, a, b);
+      if (d > maxD) { maxD = d; idx = i; }
+    }
+    if (maxD > eps) { keep[idx] = true; simplify(a, idx); simplify(idx, b); }
+  }
+  simplify(L, R);
 }
