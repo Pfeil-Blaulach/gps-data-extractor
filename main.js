@@ -218,8 +218,8 @@ function num(x) { const n = Number(x); return Number.isFinite(n) ? n : 0; }
 // aus Rows die t- und s-Arrays extrahieren
 function extractTS(rows) {
   return {
-    tArr: rows.map(r => num(r['Δt seit Start [s]'])),
-    sArr: rows.map(r => num(r['s kumuliert [m]'])),
+    tArr: rows.map(r => num(r['Zeit t seit Start [s]'])),
+    sArr: rows.map(r => num(r['Gesamtstrecke s [m]'])),
   };
 }
 
