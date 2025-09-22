@@ -10,8 +10,14 @@ h2 { margin-top: 24px; }
 .subtle { color: var(--muted); }
 
 button, .secondary {
-  display: inline-block; padding: 10px 14px; border-radius: var(--radius);
-  border: 1px solid var(--accent); background: var(--accent); color: white; text-decoration: none;
+  display: inline-block; 
+  padding: 10px 14px; 
+  border-radius: var(--radius);
+  border: 1px solid var(--accent); 
+  background: var(--accent); 
+  color: white; 
+  text-decoration: none;
+  cursor: pointer;
 }
 .secondary { background: transparent; color: var(--accent); margin-left: 8px; }
 
