@@ -43,6 +43,30 @@ button, .secondary {
   align-items: left;
 }
 
+/* Radios nebeneinander – wenn Platz da ist; sonst automatisch Umbruch */
+#modeFieldset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;      /* Reihen- und Spaltenabstand */
+}
+
+/* Legend oben als eigene Zeile (wirkt „sauberer“) */
+#modeFieldset legend {
+  flex-basis: 100%;
+  margin-bottom: 0.25rem;
+}
+
+/* Label + Radio hübsch ausrichten, Text nicht umbrechen */
+#modeFieldset .radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  margin-left: 0 !important; /* überschreibt das inline margin-left aus dem HTML */
+}
+
+
 .table-host { overflow: auto; border-radius: var(--radius); border: 1px solid #e5e7eb; }
 table { border-collapse: collapse; width: 100%; }
 th, td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; }
