@@ -8,16 +8,18 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: var(--fg); background: var(--bg); }
+
 .container { max-width: 960px; margin: 0 auto; padding: 16px; }
+
 h1 { margin: 6px 0 6px; }
-h2 { margin-top: 24px; }
-.subtle { color: var(--muted); }
+
+lable { color: var(--muted); }
 
 .controls {
   margin-top: 18px; 
-  background: #dddddd; 
+  background: #eeeeee; 
   border-radius: var(--radius);
-  border: 1px solid var(--accent); 
+  border: 1px solid var(--fg); 
   padding: 6px; 
 }
 
