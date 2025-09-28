@@ -81,6 +81,12 @@ fileInput?.addEventListener('change', async (e) => {
       tau:     defaults.tau0 * Number(tSliderEl.value || 1),
     });
 
+    // Startzustand der UI
+    if (modeKEl) modeKEl.checked = true;
+    if (modeEEl) modeEEl.checked = false;
+    simplMode = 'k';
+    updateVisibilityFromState();
+
     updateSliderLabels();  // Zahlen neben den Slidern anzeigen                    
     ctrlBox.hidden = false;                     // UI sichtbar
 
