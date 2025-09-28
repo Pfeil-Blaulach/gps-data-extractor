@@ -10,7 +10,8 @@ h2 { margin-top: 24px; }
 .subtle { color: var(--muted); }
 
 .controls {
-  background: #222222; 
+  margin-top: 18px; 
+  background: #dddddd; 
   border-radius: var(--radius);
   border: 1px solid var(--accent); 
 }
