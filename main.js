@@ -26,19 +26,21 @@ const dlCsv      = byId('downloadCsv');
 
 // Slider/Buttons
 const ctrlBox    = byId('controls');
-const vFactorEl  = byId('vFactor');
-const tFactorEl  = byId('tFactor');
-const eFactorEl  = byId('eFactor');
+const vSliderEl  = byId('vSlider');
+const tSliderEl  = byId('tSlider');
+const eSliderEl  = byId('eSlider');
+const kSliderEl  = byId('kSlider');
 const vValueEl   = byId('vValue');
 const tValueEl   = byId('tValue');
 const eValueEl   = byId('eValue');
+const kValueEl   = byId('kValue');
 const applyBtn   = byId('applySimplify');
 
 // ---- State ----
 let originalRows = [];   // ungefiltert (aus Parser)
 let currentRows  = [];   // evtl. vereinfacht
 let defaults     = null; // { v0, tau0, eps0 }
-let factors      = { v:1, t:1, e:1 };
+let parameters      = { v:1, t:1, e:1, k:1 };
 
 uploadBtn?.addEventListener('click', () => fileInput?.click());
 
@@ -82,11 +84,12 @@ fileInput?.addEventListener('change', async (e) => {
 });
 
 // NEW: Slider reagieren live (Labels updaten)
-[vFactorEl, tFactorEl, eFactorEl].forEach(inp => {
+[vSliderEl, tSliderEl, eSliderEl].forEach(inp => {
   inp?.addEventListener('input', () => {
-    factors.v = Number(vFactorEl.value);
-    factors.t = Number(tFactorEl.value);
-    factors.e = Number(eFactorEl.value);
+    parameters.v = Number(vSliderEl.value);
+    parameters.t = Number(tSliderEl.value);
+    parameters.e = Number(eSliderEl.value);
+    parameters.k = Number(kSliderEl.value);
     updateSliderLabels();
   });
 });
@@ -95,9 +98,10 @@ fileInput?.addEventListener('change', async (e) => {
 applyBtn?.addEventListener('click', () => {
   if (!originalRows.length || !defaults) return;
 
-  const vThresh = defaults.v0 * factors.v;  // m/s
-  const tau     = defaults.tau0 * factors.t; // s
-  const eps     = defaults.eps0 * factors.e; // m
+  const vThresh = defaults.v0 * parameters.v;  // m/s
+  const tau     = defaults.tau0 * parameters.t; // s
+  const eps     = defaults.eps0 * parameters.e; // m
+  const k     = parameters.k; // Anzahl
 
   const { tArr, sArr } = extractTS(originalRows);
   const keepIdx = simplifyForST(tArr, sArr, {
@@ -147,6 +151,9 @@ function safeCell(v) {
   return String(v);
 }
 
+function roundN(x, n = 1) {
+  return Number.isFinite(x) ? Number(x.toFixed(n)) : '';
+}
 // CSV (DE-freundlich)
 function toCsv(rows) {
   if (!rows?.length) return '';
@@ -205,9 +212,9 @@ function computeDefaults(rows) {
 // Slider-Labels updaten
 function updateSliderLabels() {
   if (!defaults) return;
-  const vThresh = roundN(defaults.v0 * Number(vFactorEl.value || 1));
-  const tau     = roundN(defaults.tau0 * Number(tFactorEl.value || 1));
-  const eps     = roundN(defaults.eps0 * Number(eFactorEl.value || 1));
+  const vThresh = roundN(defaults.v0 * Number(vSliderEl.value || 1));
+  const tau     = roundN(defaults.tau0 * Number(tSliderEl.value || 1));
+  const eps     = roundN(defaults.eps0 * Number(eSliderEl.value || 1));
   if (vValueEl) vValueEl.textContent = fmt(vThresh);
   if (tValueEl) tValueEl.textContent = fmt(tau);
   if (eValueEl) eValueEl.textContent = fmt(eps);
@@ -223,7 +230,203 @@ function extractTS(rows) {
   };
 }
 
-// Vereinfachung mit Stopp-Schutz (wie besprochen)
+// Vereinfachung mit fixer Zielanzahl K (globales Greedy über einen Max-Heap) -------------------------------------------------------------------------------------------------------------------------------
+function countMandatoryPoints(t, s, { vThresh=0.2, tau=10 } = {}) {
+  const n = Math.min(t.length, s.length);
+  if (n <= 2) return n;
+
+  // v[i] zwischen i-1 und i
+  const v = new Array(n).fill(0);
+  for (let i = 1; i < n; i++) {
+    const dt = Math.max(1e-9, t[i] - t[i-1]);
+    const ds = Math.max(0, s[i] - s[i-1]);
+    v[i] = ds / dt;
+  }
+
+  // Stopps finden
+  const stopSegments = [];
+  for (let i = 1; i < n;) {
+    if (v[i] < vThresh) {
+      let j = i + 1;
+      while (j < n && v[j] < vThresh) j++;
+      const dtSeg = t[j-1] - t[i-1];
+      if (dtSeg >= tau) stopSegments.push([i-1, j-1]);
+      i = j;
+    } else i++;
+  }
+
+  // Pflichtpunkte: Start/Ende + alle Stopp-Grenzen
+  const keep = new Array(n).fill(false);
+  keep[0] = keep[n-1] = true;
+  for (const [a,b] of stopSegments) { keep[a] = true; keep[b] = true; }
+  return keep.reduce((acc, v) => acc + (v ? 1 : 0), 0);
+}
+
+function simplifyForST_K(t, s, K, { vThresh=0.2, tau=10, eps=3, timeToMeters=0.1 } = {}) {
+  const n = Math.min(t.length, s.length);
+  if (n <= 2) return [...Array(n).keys()];
+
+  // 1) Geschwindigkeiten und Stopps bestimmen (wie bisher)
+  const v = new Array(n).fill(0);
+  for (let i = 1; i < n; i++) {
+    const dt = Math.max(1e-9, t[i] - t[i-1]);
+    const ds = Math.max(0, s[i] - s[i-1]);
+    v[i] = ds / dt;
+  }
+  const stopSegments = [];
+  let i = 1;
+  while (i < n) {
+    if (v[i] < vThresh) {
+      let j = i + 1;
+      while (j < n && v[j] < vThresh) j++;
+      const dtSeg = t[j-1] - t[i-1];
+      if (dtSeg >= tau) stopSegments.push([i-1, j-1]);
+      i = j;
+    } else i++;
+  }
+
+  // Pflichtpunkte: Start/Ende + Stop-Grenzen
+  const keep = new Array(n).fill(false);
+  keep[0] = true; keep[n-1] = true;
+  for (const [a,b] of stopSegments) { keep[a] = true; keep[b] = true; }
+
+  // Helper: senkrechter Abstand im skalierten s–(k·t)-Koordinatensystem
+  const k = timeToMeters;
+  function perpDist(i, a, b) {
+    const ax = t[a] * k, ay = s[a];
+    const bx = t[b] * k, by = s[b];
+    const px = t[i] * k, py = s[i];
+    const dx = bx - ax, dy = by - ay;
+    if (dx === 0 && dy === 0) return Math.hypot(px - ax, py - ay);
+    const u = ((px - ax) * dx + (py - ay) * dy) / (dx*dx + dy*dy);
+    const qx = ax + u * dx, qy = ay + u * dy;
+    return Math.hypot(px - qx, py - qy);
+  }
+
+  // Max-Abweichung und Index auf einem [a,b]-Intervall
+  function maxDev(a, b) {
+    if (b <= a + 1) return { idx: -1, d: 0 };
+    let maxD = -1, idx = -1;
+    for (let i = a + 1; i < b; i++) {
+      const d = perpDist(i, a, b);
+      if (d > maxD) { maxD = d; idx = i; }
+    }
+    return { idx, d: maxD };
+  }
+
+  // Bewegungs-Abschnittsgrenzen konstruieren
+  const bounds = [0, ...stopSegments.flat(), n-1].sort((a,b)=>a-b);
+
+  // 2) Max-Heap über alle anfänglichen Bewegungssegmente
+  class MaxHeap {
+    constructor() { this.a = []; }
+    push(x) { this.a.push(x); this._up(this.a.length-1); }
+    pop() { 
+      if (this.a.length === 0) return null;
+      const top = this.a[0];
+      const last = this.a.pop();
+      if (this.a.length) { this.a[0] = last; this._down(0); }
+      return top;
+    }
+    peek(){ return this.a.length ? this.a[0] : null; }
+    _up(i){ 
+      while (i>0){ 
+        const p=(i-1>>1);
+        if (this.a[p].d >= this.a[i].d) break;
+        [this.a[p], this.a[i]] = [this.a[i], this.a[p]]; i=p;
+      }
+    }
+    _down(i){
+      for(;;){
+        let l=i*2+1, r=l+1, m=i;
+        if (l<this.a.length && this.a[l].d>this.a[m].d) m=l;
+        if (r<this.a.length && this.a[r].d>this.a[m].d) m=r;
+        if (m===i) break;
+        [this.a[m], this.a[i]] = [this.a[i], this.a[m]]; i=m;
+      }
+    }
+    get size(){ return this.a.length; }
+  }
+  const heap = new MaxHeap();
+
+  // Hilfsfunktion: Segment in den Heap legen (nur Bewegungssegmente)
+  function pushSeg(a, b) {
+    if (b <= a + 1) return;
+    // Wenn [a,b] exakt ein Stopp-Segment ist, nicht vereinfachen
+    if (stopSegments.some(([x,y]) => x===a && y===b)) return;
+    const { idx, d } = maxDev(a, b);
+    if (idx >= 0) heap.push({ a, b, idx, d });
+  }
+
+  // Startsegmente einwerfen
+  for (let kbi = 0; kbi < bounds.length - 1; kbi++) {
+    const L = bounds[kbi], R = bounds[kbi+1];
+    // Grenzen merken (werden ohnehin durch keep-Flags gesichert)
+    keep[L] = true; keep[R] = true;
+    // Nur Bewegungssegmente in den Heap
+    pushSeg(L, R);
+  }
+
+  // Wie viele Punkte sind „Pflicht“?
+  let keepCount = keep.reduce((acc,v)=>acc+(v?1:0), 0);
+
+  // Ziel-K an Pflichtpunkten ausrichten
+  const minKeep = keepCount;
+  if (K < minKeep) K = minKeep;                 // kann man alternativ auch zurückmelden
+  if (K > n) K = n;
+
+  // 3) Globales Greedy: immer die größte Abweichung verfeinern, bis K Punkte erreicht
+  while (keepCount < K && heap.size) {
+    const seg = heap.pop();
+    const { a, b, idx, d } = seg;
+    if (idx < 0 || d <= 0) continue;
+    if (keep[idx]) {
+      // schon gesetzt? Dann nur die Splits neu evaluieren
+      pushSeg(a, idx);
+      pushSeg(idx, b);
+      continue;
+    }
+    keep[idx] = true;
+    keepCount++;
+
+    // Neue Teilsegmente in den Heap
+    pushSeg(a, idx);
+    pushSeg(idx, b);
+  }
+
+  // Falls Heap leer ist, aber K noch nicht erreicht:
+  // (selten) fülle gleichmäßig auf, ohne Struktur kaputt zu machen
+  if (keepCount < K) {
+    // nützliche Kandidaten sind die Mitte größerer Lücken
+    const idxs = [];
+    for (let p = 0; p < n; p++) if (keep[p]) idxs.push(p);
+    while (keepCount < K) {
+      let bestGap = -1, bestMid = -1, bestL = -1, bestR = -1;
+      for (let j = 0; j < idxs.length - 1; j++) {
+        const L = idxs[j], R = idxs[j+1];
+        const gap = R - L;
+        if (gap > bestGap) {
+          bestGap = gap;
+          bestMid = Math.floor((L + R) / 2);
+          bestL = L; bestR = R;
+        }
+      }
+      if (bestGap <= 1 || bestMid < 0) break;
+      keep[bestMid] = true;
+      keepCount++;
+      // aktualisiere die Lückenliste
+      idxs.splice(idxs.indexOf(bestL)+1, 0, bestMid);
+    }
+  }
+
+  // Ergebnis-Indices
+  const idx = [];
+  for (let p = 0; p < n; p++) if (keep[p]) idx.push(p);
+  return idx;
+}
+
+
+// Vereinfachung mit Stopp-Schutz ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 
 function simplifyForST(t, s, { vThresh=0.2, tau=10, eps=3, timeToMeters=0.1 } = {}) {
   const n = Math.min(t.length, s.length);
   if (n <= 2) return [...Array(n).keys()];
@@ -290,8 +493,4 @@ function douglasPeuckerOnRange(t, s, L, R, keep, eps, k) {
     if (maxD > eps) { keep[idx] = true; simplify(a, idx); simplify(idx, b); }
   }
   simplify(L, R);
-}
-
-function roundN(x, n = 1) {
-  return Number.isFinite(x) ? Number(x.toFixed(n)) : '';
 }
