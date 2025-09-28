@@ -36,11 +36,23 @@ const eValueEl   = byId('eValue');
 const kValueEl   = byId('kValue');
 const applyBtn   = byId('applySimplify');
 
+// ===  ===
+const proModeEl     = byId('proMode');
+const modeFieldset  = byId('modeFieldset');
+const modeKEl       = byId('modeK');
+const modeEEl       = byId('modeE');
+
+const vRow          = byId('vRow');
+const tRow          = byId('tRow');
+const eRow          = byId('eRow');
+const kRow          = byId('kRow');
+
 // ---- State ----
+let simplMode = 'k'; // 'k' (Anzahl Punkte) oder 'eps' (Max. Abweichung)
 let originalRows = [];   // ungefiltert (aus Parser)
 let currentRows  = [];   // evtl. vereinfacht
 let defaults     = null; // { v0, tau0, eps0 }
-let parameters      = { v:1, t:1, e:1, k:1 };
+let parameters      = { v:1, t:1, e:1, k:10 };
 
 uploadBtn?.addEventListener('click', () => fileInput?.click());
 
@@ -116,35 +128,67 @@ kSliderEl?.addEventListener('input', () => {
   if (kValueEl) kValueEl.textContent = kSliderEl.value;
 });
 
+// Profimodus umschalten
+proModeEl?.addEventListener('change', () => {
+  const pro = !!proModeEl.checked;
+  if (!pro) {
+    // Profimodus AUS: Radiowahl auf "K", v/t/ε resetten
+    if (modeKEl) modeKEl.checked = true;
+    if (modeEEl) modeEEl.checked = false;
+    setSimplMode('k');
+    resetProDefaults();
+  } else {
+    // Profimodus EIN: aktuelle Radiowahl übernehmen (Default: K)
+    setSimplMode(modeKEl?.checked ? 'k' : 'eps');
+  }
+});
 
-// NEW: Vereinfachung anwenden
+// Radiobuttons (Art der Vereinfachung)
+modeKEl?.addEventListener('change', () => {
+  if (modeKEl.checked) setSimplMode('k');
+});
+modeEEl?.addEventListener('change', () => {
+  if (modeEEl.checked) setSimplMode('eps');
+});
+
+// Optional: Live-Label für K
+kSliderEl?.addEventListener('input', () => {
+  parameters.k = Number(kSliderEl.value);
+  if (kValueEl) kValueEl.textContent = kSliderEl.value;
+});
+
+// Vereinfachung anwenden -------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 applyBtn?.addEventListener('click', () => {
-  if (!originalRows.length || !defaults) return;
+  if (!originalRows?.length || !defaults) return;
 
-  const vThresh = defaults.v0 * parameters.v;  // m/s
-  const tau     = defaults.tau0 * parameters.t; // s
-  const eps     = defaults.eps0 * parameters.e; // m
-  const K       = Number(kSliderEl?.value || parameters.k || 20);
+  const vThresh = defaults.v0  * Number(vSliderEl?.value || 1);
+  const tau     = defaults.tau0* Number(tSliderEl?.value || 1);
+  const eps     = defaults.eps0* Number(eSliderEl?.value || 1);
+  const K       = Number(kSliderEl?.value || parameters.k || 50);
 
   const { tArr, sArr } = extractTS(originalRows);
 
-  // K-Slider-Grenzen sicherheitshalber frisch setzen (falls sich v/t änderten)
+  // K-Grenzen sicherheitshalber frisch (falls v/t geändert)
   refreshKSliderBounds(tArr, sArr, { vThresh, tau });
-  
-  /*const keepIdx = simplifyForST(tArr, sArr, {
-    vThresh, tau, eps, timeToMeters: 0.1
-  });*/
 
-   const keepIdx = simplifyForST_K(tArr, sArr, K, {
-    vThresh, tau, eps, timeToMeters: 0.1
-  });
+  let keepIdx;
+  if (!proModeEl?.checked || simplMode === 'k') {
+    // Einfacher Modus ODER Profimodus + "Anzahl Datenpunkte"
+    keepIdx = simplifyForST_K(tArr, sArr, K, { vThresh, tau, eps, timeToMeters: 0.1 });
+  } else {
+    // Profimodus + "Maximale Abweichung"
+    keepIdx = simplifyForST(tArr, sArr, { vThresh, tau, eps, timeToMeters: 0.1 });
+  }
 
   currentRows = originalRows.filter((_, i) => keepIdx.includes(i));
   renderTable(currentRows);
   prepareCsv(currentRows);
+
+  const modeStr = (!proModeEl?.checked || simplMode==='k') ? `K=${K}` : `ε≈${roundN(eps)} m`;
+  //info(`Vereinfacht: ${currentRows.length}/${originalRows.length} – ${modeStr}, vₜₕ=${roundN(vThresh)} m/s, τ=${roundN(tau)} s`);
   //info(`Vereinfacht: ${currentRows.length} Punkte (von ${originalRows.length}) – vThresh=${fmt(vThresh)} m/s, τ=${fmt(tau)} s, ε=${fmt(eps)} m`);
   //info(`Vereinfacht: ${currentRows.length} Punkte (von ${originalRows.length}) – vThresh=${fmt(vThresh)} m/s, τ=${fmt(tau)} s`);
-  info(`Vereinfacht auf ${currentRows.length} Datenpunkten (von ${originalRows.length})`);
+  info(`${modeStr}: Vereinfacht auf ${currentRows.length} Datenpunkte (von ${originalRows.length})`);
 });
 
 // ---- UI Helpers & Rendering (wie zuvor) ----
@@ -155,6 +199,59 @@ const info  = (t) => setStatus(t, 'msg info');
 const ok    = (t) => setStatus(t, 'msg ok');
 const warn  = (t) => setStatus(t, 'msg warn');
 const error = (t) => setStatus(t, 'msg error');
+
+// Sichtbarkeiten gemäß Profimodus & Radiowahl
+function updateVisibilityFromState() {
+  const pro = !!proModeEl?.checked;
+
+  modeFieldset.hidden = !pro;
+  vRow.hidden = !pro;
+  tRow.hidden = !pro;
+
+  if (!pro) {
+    // Einfacher Modus: nur K sichtbar
+    eRow.hidden = true;
+    kRow.hidden = false;
+    return;
+  }
+
+  // Profimodus aktiv: je nach Radiobutton
+  if (simplMode === 'k') {
+    kRow.hidden = false;
+    eRow.hidden = true;
+  } else {
+    kRow.hidden = true;
+    eRow.hidden = false;
+  }
+}
+
+// Profimodus aus → v/t/ε auf Default (Faktor 1), Labels/Bereiche updaten (K bleibt)
+function resetProDefaults() {
+  if (vSliderEl) vSliderEl.value = '1';
+  if (tSliderEl) tSliderEl.value = '1';
+  if (eSliderEl) eSliderEl.value = '1';
+
+  parameters.v = 1;
+  parameters.t = 1;
+  parameters.e = 1;
+
+  if (typeof updateSliderLabels === 'function') updateSliderLabels();
+
+  // K-Bounds hängen von vThresh/tau ab → neu setzen (falls Daten vorhanden)
+  if (typeof defaults !== 'undefined' && defaults && originalRows?.length) {
+    const { tArr, sArr } = extractTS(originalRows);
+    refreshKSliderBounds(tArr, sArr, {
+      vThresh: defaults.v0 * 1,
+      tau:     defaults.tau0 * 1,
+    });
+  }
+}
+
+function setSimplMode(mode) {
+  simplMode = mode; // 'k' | 'eps'
+  updateVisibilityFromState();
+}
+
 
 function renderTable(rows) {
   if (!tableHost) return;
