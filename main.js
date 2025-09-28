@@ -142,7 +142,9 @@ applyBtn?.addEventListener('click', () => {
   currentRows = originalRows.filter((_, i) => keepIdx.includes(i));
   renderTable(currentRows);
   prepareCsv(currentRows);
-  info(`Vereinfacht: ${currentRows.length} Punkte (von ${originalRows.length}) – vThresh=${fmt(vThresh)} m/s, τ=${fmt(tau)} s, ε=${fmt(eps)} m`);
+  //info(`Vereinfacht: ${currentRows.length} Punkte (von ${originalRows.length}) – vThresh=${fmt(vThresh)} m/s, τ=${fmt(tau)} s, ε=${fmt(eps)} m`);
+  //info(`Vereinfacht: ${currentRows.length} Punkte (von ${originalRows.length}) – vThresh=${fmt(vThresh)} m/s, τ=${fmt(tau)} s`);
+  info(`Vereinfacht von ${currentRows.length} Datenpunkten auf ${originalRows.length}`);
 });
 
 // ---- UI Helpers & Rendering (wie zuvor) ----
