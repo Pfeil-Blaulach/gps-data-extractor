@@ -203,7 +203,6 @@ applyBtn?.addEventListener('click', () => {
 });
 
 // ---- UI Helpers & Rendering (wie zuvor) ----
-function byId(id) { return document.getElementById(id); }
 function resetUI() { if (statusEl) statusEl.textContent = ''; }
 function setStatus(text, cls) { if (!statusEl) return; statusEl.textContent = text; statusEl.className = cls || ''; }
 const info  = (t) => setStatus(t, 'msg info');
