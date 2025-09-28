@@ -4,6 +4,15 @@
 
 import { parseGpx } from './gpxparser.js';
 
+// byId gleich nach oben (robust, klar lesbar)
+function byId(id) { return document.getElementById(id); }
+
+// Fallback-Init, falls das Modul früher lädt als erwartet
+document.addEventListener('DOMContentLoaded', () => {
+  try { typeof initControls === 'function' && initControls(); } catch {}
+});
+
+
 // ---- Sichtbare Spalten (Reihenfolge & Benennung) ----
 const VISIBLE_COLS = [
   //'Lat',
@@ -89,6 +98,8 @@ fileInput?.addEventListener('change', async (e) => {
 
     updateSliderLabels();  // Zahlen neben den Slidern anzeigen                    
     ctrlBox.hidden = false;                     // UI sichtbar
+    updateVisibilityFromState();                // ⬅️ NEU: Sichtbarkeiten sauber setzen
+
 
     // Startansicht: noch nicht vereinfacht
     currentRows = originalRows;
