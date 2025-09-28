@@ -9,43 +9,73 @@
 <body>
   <header class="container">
     <h1>Geodaten für ein s-t-Diagramm</h1>
+
     <h3>Datei hochladen</h3>
     <p class="subtle">Lade eine <strong>.gpx</strong> Datei hoch, um die Geodaten zu sehen.</p>
     <button id="uploadBtn" type="button">Geodaten hochladen</button>
     <input id="fileInput" type="file" accept=".gpx" hidden />
     <button id="downloadCsv" type="button" href="#" download="geodaten.csv" class="secondary">CSV herunterladen</button>
-    <!--<a id="downloadCsv" href="#" download="geodaten.csv" class="secondary" hidden>CSV herunterladen</a>-->
 
     <div id="controls" class="controls" hidden>
       <h3>Vereinfachung</h3>
       <p class="subtle">Hier kannst du die Daten vereinfachen. So musst du weniger Punkte einzeichnen.</p>
-      <div class="ctrl-row">
-        <label for="vSlider">Langsame Bewegung als Stillstand werten: Ab <span id="vValue">–</span> m/s
+
+      <!-- NEU: Profimodus -->
+      <div class="ctrl-row" id="proRow">
+        <label for="proMode">
+          <input id="proMode" type="checkbox" />
+          Profimodus
+        </label>
+      </div>
+
+      <!-- NEU: Art der Vereinfachung (nur im Profimodus sichtbar) -->
+      <fieldset id="modeFieldset" class="ctrl-row" hidden>
+        <legend>Art der Vereinfachung</legend>
+        <label for="modeK" class="radio">
+          <input type="radio" name="simplMode" id="modeK" value="k" checked />
+          Anzahl Datenpunkte
+        </label>
+        <label for="modeE" class="radio" style="margin-left:1rem">
+          <input type="radio" name="simplMode" id="modeE" value="eps" />
+          Maximale Abweichung
+        </label>
+      </fieldset>
+
+      <!-- v/τ nur im Profimodus sichtbar -->
+      <div class="ctrl-row" id="vRow" hidden>
+        <label for="vSlider">
+          Langsame Bewegung als Stillstand werten: Ab <span id="vValue">–</span> m/s
         </label>
         <input id="vSlider" type="range" min="0" max="2" step="0.1" value="1" />
       </div>
-      <div class="ctrl-row">
-        <label for="kSlider">Anzahl Datenpunkte nach Vereinfachung: <span id="kValue">–</span>
-        </label>
-        <input id="kSlider" type="range" min="5" max="20" step="1" value="10" />
-      </div>
-      
-      <button id="applySimplify" type="button" class="secondary">Kurve vereinfachen</button>
-    </div>
 
-    <div hidden>
-        <label for="tSlider">Tau = <span id="tValue">–</span> s
+      <div class="ctrl-row" id="tRow" hidden>
+        <label for="tSlider">
+          Tau = <span id="tValue">–</span> s
         </label>
         <input id="tSlider" type="range" min="0.1" max="2" step="0.1" value="1" />
       </div>
-    <div hidden>
-        <label for="eSlider">Maximale Abweichung nach der Vereinfachung: <span id="eValue">–</span> m
+
+      <!-- ε nur im Profimodus UND nur wenn "Maximale Abweichung" aktiv -->
+      <div class="ctrl-row" id="eRow" hidden>
+        <label for="eSlider">
+          Maximale Abweichung nach der Vereinfachung: <span id="eValue">–</span> m
         </label>
         <input id="eSlider" type="range" min="0" max="2" step="0.05" value="1" />
       </div>
 
+      <!-- K immer sichtbar im einfachen Modus; im Profimodus nur wenn "Anzahl Datenpunkte" aktiv -->
+      <div class="ctrl-row" id="kRow">
+        <label for="kSlider">
+          Anzahl Datenpunkte nach Vereinfachung: <span id="kValue">–</span>
+        </label>
+        <input id="kSlider" type="range" min="5" max="20" step="1" value="10" />
+      </div>
+
+      <button id="applySimplify" type="button" class="secondary">Kurve vereinfachen</button>
+    </div>
+
     <div id="status" role="status" aria-live="polite"></div>
-    
   </header>
 
   <main class="container">
