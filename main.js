@@ -62,7 +62,14 @@ fileInput?.addEventListener('change', async (e) => {
 
     // NEW: Defaults aus Daten berechnen
     defaults = computeDefaults(originalRows);   // { v0, tau0, eps0 }
-    updateSliderLabels();                       // Zahlen neben den Slidern anzeigen
+
+    const { tArr, sArr } = extractTS(originalRows);
+    refreshKSliderBounds(tArr, sArr, {
+      vThresh: defaults.v0 * Number(vSliderEl.value || 1),
+      tau:     defaults.tau0 * Number(tSliderEl.value || 1),
+    });
+
+    updateSliderLabels();  // Zahlen neben den Slidern anzeigen                    
     ctrlBox.hidden = false;                     // UI sichtbar
 
     // Startansicht: noch nicht vereinfacht
@@ -89,10 +96,26 @@ fileInput?.addEventListener('change', async (e) => {
     parameters.v = Number(vSliderEl.value);
     parameters.t = Number(tSliderEl.value);
     parameters.e = Number(eSliderEl.value);
-    parameters.k = Number(kSliderEl.value);
+    parameters.k = Number(kSliderEl.value);  // bleibt vorerst hier ungenutzt
     updateSliderLabels();
+    // Wenn v/t sich ändert, ändern sich die Pflichtpunkte -> K-Bounds neu setzen
+    if (originalRows.length && defaults) {
+      const { tArr, sArr } = extractTS(originalRows);
+      const opts = {
+        vThresh: defaults.v0 * parameters.v,
+        tau:     defaults.tau0 * parameters.t,
+      };
+      refreshKSliderBounds(tArr, sArr, opts);
+    }
   });
 });
+
+// NEU: K-Slider eigenes Event
+kSliderEl?.addEventListener('input', () => {
+  parameters.k = Number(kSliderEl.value);
+  if (kValueEl) kValueEl.textContent = kSliderEl.value;
+});
+
 
 // NEW: Vereinfachung anwenden
 applyBtn?.addEventListener('click', () => {
@@ -101,10 +124,18 @@ applyBtn?.addEventListener('click', () => {
   const vThresh = defaults.v0 * parameters.v;  // m/s
   const tau     = defaults.tau0 * parameters.t; // s
   const eps     = defaults.eps0 * parameters.e; // m
-  const k     = parameters.k; // Anzahl
+  const K       = Number(kSliderEl?.value || parameters.k || 20);
 
   const { tArr, sArr } = extractTS(originalRows);
-  const keepIdx = simplifyForST(tArr, sArr, {
+
+  // K-Slider-Grenzen sicherheitshalber frisch setzen (falls sich v/t änderten)
+  refreshKSliderBounds(tArr, sArr, { vThresh, tau });
+  
+  /*const keepIdx = simplifyForST(tArr, sArr, {
+    vThresh, tau, eps, timeToMeters: 0.1
+  });*/
+
+   const keepIdx = simplifyForST_K(tArr, sArr, K, {
     vThresh, tau, eps, timeToMeters: 0.1
   });
 
@@ -218,6 +249,7 @@ function updateSliderLabels() {
   if (vValueEl) vValueEl.textContent = fmt(vThresh);
   if (tValueEl) tValueEl.textContent = fmt(tau);
   if (eValueEl) eValueEl.textContent = fmt(eps);
+  if (kValueEl && kSliderEl) kValueEl.textContent = kSliderEl.value; // NEU
 }
 function fmt(x) { return Number(x).toLocaleString('de-DE', { maximumFractionDigits: 3 }); }
 function num(x) { const n = Number(x); return Number.isFinite(n) ? n : 0; }
@@ -231,6 +263,23 @@ function extractTS(rows) {
 }
 
 // Vereinfachung mit fixer Zielanzahl K (globales Greedy über einen Max-Heap) -------------------------------------------------------------------------------------------------------------------------------
+function refreshKSliderBounds(tArr, sArr, { vThresh, tau }) {
+  if (!kSliderEl) return;
+  const minKeep = countMandatoryPoints(tArr, sArr, { vThresh, tau });
+  const n = Math.min(tArr.length, sArr.length);
+
+  // Grenzen setzen
+  kSliderEl.min = Math.max(2, minKeep);
+  kSliderEl.max = n;
+
+  // aktuellen/gewünschten Wert einklemmen
+  const wanted = Number(kSliderEl.value) || Math.round(n * 0.10);
+  const clamped = Math.max(minKeep, Math.min(n, wanted));
+  kSliderEl.value = String(clamped);
+  parameters.k = clamped;
+  if (kValueEl) kValueEl.textContent = kSliderEl.value;
+}
+
 function countMandatoryPoints(t, s, { vThresh=0.2, tau=10 } = {}) {
   const n = Math.min(t.length, s.length);
   if (n <= 2) return n;
