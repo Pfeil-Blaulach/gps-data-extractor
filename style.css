@@ -9,6 +9,12 @@ h1 { margin: 6px 0 6x; }
 h2 { margin-top: 24px; }
 .subtle { color: var(--muted); }
 
+.controls {
+  background: #222222; 
+  border-radius: var(--radius);
+  border: 1px solid var(--accent); 
+}
+
 button, .secondary {
   display: inline-block; 
   padding: 10px 14px; 
