@@ -157,12 +157,6 @@ modeEEl?.addEventListener('change', () => {
   if (modeEEl.checked) setSimplMode('eps');
 });
 
-// Optional: Live-Label für K
-kSliderEl?.addEventListener('input', () => {
-  parameters.k = Number(kSliderEl.value);
-  if (kValueEl) kValueEl.textContent = kSliderEl.value;
-});
-
 // Vereinfachung anwenden -------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 applyBtn?.addEventListener('click', () => {
   if (!originalRows?.length || !defaults) return;
@@ -648,3 +642,23 @@ function douglasPeuckerOnRange(t, s, L, R, keep, eps, k) {
   }
   simplify(L, R);
 }
+
+// ---- INIT: Controls auf Startzustand setzen ----
+function initControls() {
+  // Profimodus AUS als Start
+  if (proModeEl) proModeEl.checked = false;
+
+  // Radiowahl auf "Anzahl Datenpunkte"
+  if (modeKEl) modeKEl.checked = true;
+  if (modeEEl) modeEEl.checked = false;
+  simplMode = 'k';
+
+  // Labels initial befüllen
+  if (kValueEl && kSliderEl) kValueEl.textContent = kSliderEl.value;
+
+  // Sichtbarkeit gemäß Zustand herstellen
+  updateVisibilityFromState();
+}
+
+// Direkt beim Laden ausführen
+initControls();
