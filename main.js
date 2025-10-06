@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
 const VISIBLE_COLS = [
   //'Lat',
   //'Lon',
-  'Datum',
+  //'Datum',
   'Uhrzeit',
   'Zeit t seit Start [s]',
   'Δt zum Vorpunkt [s]',
