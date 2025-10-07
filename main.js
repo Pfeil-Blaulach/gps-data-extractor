@@ -192,6 +192,7 @@ applyBtn?.addEventListener('click', () => {
   }
 
   currentRows = originalRows.filter((_, i) => keepIdx.includes(i));
+  currentRows = recomputeDeltas(currentRows);   // Deltas neu berechnen
   renderTable(currentRows);
   prepareCsv(currentRows);
 
@@ -201,6 +202,27 @@ applyBtn?.addEventListener('click', () => {
   //info(`Vereinfacht: ${currentRows.length} Punkte (von ${originalRows.length}) – vThresh=${fmt(vThresh)} m/s, τ=${fmt(tau)} s`);
   info(`${modeStr}: Vereinfacht auf ${currentRows.length} Datenpunkte (von ${originalRows.length})`);
 });
+
+// === Helper: Δt/Δs für die jeweils aktuelle (vereinfachte) Tabelle neu berechnen ===
+function recomputeDeltas(rows) {
+  if (!rows?.length) return rows;
+
+  // erste Zeile: 0/0 zum "Vorpunkt"
+  rows[0]['Δt zum Vorpunkt [s]'] = 0;
+  rows[0]['Δs zum Vorpunkt [m]'] = 0;
+
+  for (let i = 1; i < rows.length; i++) {
+    const tPrev = Number(rows[i-1]['Zeit t seit Start [s]']);
+    const sPrev = Number(rows[i-1]['Gesamtstrecke s [m]']);
+    const tCur  = Number(rows[i  ]['Zeit t seit Start [s]']);
+    const sCur  = Number(rows[i  ]['Gesamtstrecke s [m]']);
+
+    rows[i]['Δt zum Vorpunkt [s]'] = tCur - tPrev;
+    rows[i]['Δs zum Vorpunkt [m]'] = Math.max(0, sCur - sPrev); // negative vermeiden
+  }
+  return rows;
+}
+
 
 // ---- UI Helpers & Rendering (wie zuvor) ----
 function resetUI() { if (statusEl) statusEl.textContent = ''; }
