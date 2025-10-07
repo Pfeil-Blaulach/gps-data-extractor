@@ -324,12 +324,15 @@ function toCsv(rows) {
   const escape = (v) => {
     if (v === null || v === undefined) return '';
     if (typeof v === 'number' && Number.isFinite(v)) return v.toLocaleString('de-DE', { maximumFractionDigits: 10 });
-    const s = String(v); const needQuotes = /["\n;]/.test(s); const esc = s.replace(/"/g, '""');
+    const s = String(v); 
+    const needQuotes = /["\n;]/.test(s); 
+    const esc = s.replace(/"/g, '""');
     return needQuotes ? `"${esc}"` : esc;
   };
   const head = cols.map(escape).join(sep);
   const body = rows.map(r => cols.map(c => escape(r[c])).join(sep)).join('\n');
-  return head + '\n' + body;
+  const BOM = '\uFEFF';
+  return BOM + head + '\n' + body;
 }
 
 function prepareCsv(rows) {
@@ -337,10 +340,6 @@ function prepareCsv(rows) {
 
   const header = Object.keys(rows[0]);
   const csv = toCsv(rows);
-  /*[
-    header.join(';'),
-    ...rows.map(r => header.map(h => r[h]).join(';'))
-  ].join('\n');*/
 
   // Blob erstellen und URL erzeugen
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
