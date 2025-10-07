@@ -331,13 +331,43 @@ function toCsv(rows) {
   const body = rows.map(r => cols.map(c => escape(r[c])).join(sep)).join('\n');
   return head + '\n' + body;
 }
+
 function prepareCsv(rows) {
+  if (!rows || !rows.length) return;
+
+  const header = Object.keys(rows[0]);
+  const csv = [
+    header.join(';'),
+    ...rows.map(r => header.map(h => r[h]).join(';'))
+  ].join('\n');
+
+  // Blob erstellen und URL erzeugen
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+
+  const btn = document.getElementById('downloadCsv');
+  btn.hidden = false;
+
+  // Klick-Handler neu setzen
+  btn.onclick = () => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'geodaten.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+}
+
+
+/*function prepareCsv(rows) {
   if (!dlCsv) return;
   const csv = toCsv(rows);
   const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   dlCsv.href = url; dlCsv.download = suggestCsvName() + '.csv'; dlCsv.hidden = false;
-}
+}*/
+
 function hideCsv() { if (dlCsv) { dlCsv.hidden = true; dlCsv.removeAttribute('href'); } }
 function suggestCsvName() {
   const header = document.querySelector('header h1')?.textContent?.trim();
