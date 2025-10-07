@@ -336,10 +336,11 @@ function prepareCsv(rows) {
   if (!rows || !rows.length) return;
 
   const header = Object.keys(rows[0]);
-  const csv = [
+  const csv = toCsv(rows);
+  /*[
     header.join(';'),
     ...rows.map(r => header.map(h => r[h]).join(';'))
-  ].join('\n');
+  ].join('\n');*/
 
   // Blob erstellen und URL erzeugen
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
